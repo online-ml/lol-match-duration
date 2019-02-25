@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+  <nav class="level">
+    <div class="level-item has-text-centered">
+      <div>
+        <p class="heading">Ongoing matches</p>
+        <p class="title">{{ n_ongoing }}</p>
+      </div>
+    </div>
+    <div class="level-item has-text-centered">
+      <div>
+        <p class="heading">Matches seen</p>
+        <p class="title">{{ n_predictions }}</p>
+      </div>
+    </div>
+    <div class="level-item has-text-centered">
+      <div>
+        <p class="heading">Average error</p>
+        <p class="title">{{ avg_error }}</p>
+      </div>
+    </div>
+  </nav>
+
+  <section class="section">
+    <div class="container">
+
+    <div class="columns is-centered">
+      <div class="column is-one-third">
+        <div class="box">
+          <h2 class="subtitle">Add a match</h2>
+          <form action="/" method="post">
+            {% csrf_token %}
+
+            {{ form.non_field_errors }}
+
+            {{ form.source.errors }}
+            {{ form.source }}
+
+            <div class="field">
+              <label class="label">Summoner name</label>
+              <div class="control">
+                <input
+                  class="input is-medium"
+                  placeholder="Faker"
+                  type="text"
+                  name="{{ form.summoner_name.name }}"
+                  id="{{ form.summoner_name.id_for_label }}"
+                  {% if form.summoner_name.value != None %}
+                    value="{{ form.summoner_name.value|stringformat:'s' }}"
+                  {% endif %}
+                  maxlength="{{ form.summoner_name.field.max_length }}"
+                  {% if form.summoner_name.field.required %}required{% endif %}
+                >
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label">Region</label>
+              <div class="control has-icons-left">
+                <div class="select is-medium">
+                  <select
+                    name="{{ form.region.name }}"
+                    id="{{ form.region.id_for_label }}"
+                  >
+                    {% for region in form.fields.region.choices %}
+                    <option value="{{ region.0 }}">{{ region.1 }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="icon is-medium is-left">
+                  <i class="fas fa-globe"></i>
+                </div>
+              </div>
+            </div>
+
+            </br>
+
+            <div class="field is-grouped is-grouped-centered">
+              <div class="control">
+                <button type="submit" class="button is-info is-outlined">Submit</button>
+              </div>
+            </div>
+
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <section class="section">
+
+    <div class="container">
+
+        <h2 class="title">Latest matches</h2>
+
+        <div class="tile is-ancestor" style="flex-wrap: wrap;">
+          {% for match in matches %}
+          <div class="tile is-4 is-parent">
+
+            <div class="tile is-child">
+
+              <a class="card-link" href="match/{{ match.id }}">
+                <div class="card">
+                  <header class="card-header">
+                    <p class="card-header-title is-centered">
+                      Match {{ match.api_id }}
+                    </p>
+                  </header>
+                  <div class="card-content">
+                    <div class="content">
+                      <p>
+                        Started at {{ match.started_at }}
+                        <br>
+                        Predicted duration is {{ match.predicted_duration }}
+                        <br>
+                        {% if match.ended_at %}
+                        True duration is {{ match.true_duration }}
+                        {% else %}
+                        Still in progress
+                        {% endif %}
+
+                      </p>
+                    </div>
+                  </div>
+                  <footer class="card-footer">
+                    <p class="card-footer-item tags">
+                      <span class="tag is-success">{{ match.region.full_name }}</span>
+                      <span class="tag is-link">{{ match.mode }}</span>
+                      <span class="tag is-warning">{{ match.type }}</span>
+                    </p>
+                  </footer>
+                </div>
+              </div>
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+
+    </div>
+  </section>
+{% endblock %}
+
+<style>
+.match-container {
+  border-width: 2px;
+  border-style: solid;
+}
+
+.card-link {
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%; width: 100%;
+}
+</style>

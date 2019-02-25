@@ -1,0 +1,81 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>LoL creme</title>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.4/css/bulma.min.css">
+      <script defer src="https://use.fontawesome.com/releases/v5.3.1/js/all.js"></script>
+    </head>
+
+    <body>
+
+      <section class="hero is-light">
+        <div class="hero-body">
+          <div class="container">
+            <div class="columns is-centered">
+              <div class="column is-one-fifth" style="text-align: center;">
+                <img src="{% static "creme_logo.png" %}" alt="creme_logo">
+              </div>
+              <div class="column is-one-fifth" style="text-align: center;">
+                <img src="{% static "lol_logo.png" %}" alt="lol_logo">
+              </div>
+            </div>
+            <div class="columns is-centered">
+              <div class="column is-half" style="text-align: center;">
+
+                  <h1 class="title">
+                    <a href="/">
+                    LoL match duration forecasting
+                  </a>
+                  </h1>
+                <h2 class="subtitle">
+                  Using online machine learning
+                </h2>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          {% if messages %}
+          <div class="columns is-centered">
+            <div class="column is-half">
+              <article class="message">
+                <div class="message-header">
+                  <p>Messages</p>
+                </div>
+                <div class="message-body">
+                  <ul>
+                    {% for message in messages %}
+                    <li>{{ message }}</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              </article>
+            </div>
+          </div>
+          {% endif %}
+          {% block content %}{% endblock %}
+        </div>
+      </section>
+
+    </body>
+
+    <section class="footer">
+      <div class="content has-text-centered">
+        <p>
+          <i class="fas fa-bolt has-text-warning"></i> Powered by <a href="https://www.djangoproject.com/">Django</a>, <a href="https://bulma.io/">Bulma</a>, and other lovely technologies <i class="fas fa-heart has-text-danger"></i>
+        </p>
+        <p>
+          <i class="fas fa-code has-text-info"></i> <a href="https://github.com/creme-ml">Find us on GitHub</a> <i class="fab fa-github"></i>
+        </p>
+      </div>
+    </section>
+
+</html>

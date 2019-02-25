@@ -1,0 +1,76 @@
+version: '3.4'
+
+x-app-variables: &app-variables
+  DJANGO_SETTINGS_MODULE: lolmd.settings.dev
+  SECRET_KEY: ${SECRET_KEY:-Keep_it_secret,_keep_it_safe}
+  DB_NAME: lolmd
+  HEARTBEAT_RATE: 60
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  REDIS_DB: 0
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-redis}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD:-creme}
+
+services:
+
+  redis:
+    image: bitnami/redis:4.0.11
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis}
+    ports:
+      - "6379:6379"
+
+  app:
+    restart: always
+    build: .
+    environment: *app-variables
+    command: >
+      bash -c "python manage.py makemigrations core
+      && python manage.py migrate --noinput
+      && python manage.py flush --noinput
+      && python manage.py flush_redis
+      && python manage.py add_regions
+      && python manage.py add_models
+      && python manage.py add_admins
+      && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+
+  rqworker:
+    restart: always
+    build: ./
+    environment: *app-variables
+    command: bash wait-for-it.sh app:8000 -t 0 -- python manage.py rqworker default
+    volumes:
+      - .:/code
+    depends_on:
+      - app
+
+  rqscheduler:
+    restart: always
+    build: ./
+    environment: *app-variables
+    command: bash wait-for-it.sh app:8000 -t 0 -- python manage.py rqscheduler --interval 60
+    volumes:
+      - .:/code
+    depends_on:
+      - app
+
+  redis-commander:
+    restart: always
+    image: rediscommander/redis-commander
+    ports:
+      - "8082:8082"
+    links:
+      - redis:redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis}
+      - PORT=8082
+    depends_on:
+      - redis
