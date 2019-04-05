@@ -1,6 +1,38 @@
 {% extends "base.html" %}
 
+{% load humanize %}
+{% load extra_humanize %}
+
 {% block content %}
+
+  <div class="container has-text-centered">
+    <button class="button is-primary is-large modal-button" data-target="#myModal" aria-haspopup="true">
+      What is this?
+    </button>
+  </div>
+
+  </br>
+
+  <div class="modal" id="myModal">
+    <div class="modal-background"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">What is this?</p>
+      </header>
+      <section class="modal-card-body">
+        <p>This website serves as a demonstration for an online machine learning library named <a href="https://github.com/creme-ml/creme/">creme</a>. As such our goal isn't to make any profit whatsoever. We simply believe that online video games are a great playground for battle-testing our library. League of Legends in particular is a perfect fit because it has a rich API from which to grab information.</p>
+        </br>
+        <p>One could of think many LoL related applications where machine learning could be used. For this particular case we decided to forecast the amount of time a League of Legends will take. In machine learning lingo this is called a "regression" problem because the amount we want to forecast is a real number. Another possible task would be to predict the winning team of a game, which is called a "binary classification" problem.</p>
+        </br>
+        <p>At the moment our model is as simple as it gets: it's a simple linear regression. The interesting part is that it is trained incrementally with every incoming match. This is extremely practical because we don't have to manage large amounts of data at the same time. Furthermore we don't have to worry about scheduling training phases. Our library is also able to compute features in an online manner. Our goal isn't to build a very accurate model, but rather to implement an elegant pipeline that is easy to put into to production and to maintain. Furthermore we want to use this application as a benchmark for online algorithms we are working on.</p>
+        </br>
+        <p>If you are into data science and this piques your curiosity, we encourage you to take a look at our <a href="https://github.com/creme-ml/creme/">GitHub repository</a>. We'd be glad to hear from you.</p>
+      </section>
+      <footer class="modal-card-foot">
+      </footer>
+    </div>
+    <button class="modal-close is-large" aria-label="close"></button>
+  </div>
 
   <nav class="level">
     <div class="level-item has-text-centered">
@@ -11,21 +43,26 @@
     </div>
     <div class="level-item has-text-centered">
       <div>
-        <p class="heading">Matches seen</p>
-        <p class="title">{{ n_predictions }}</p>
+        <p class="heading">Matches analyzed</p>
+        <p class="title">{{ n_fit }}</p>
       </div>
     </div>
+  </nav>
+
+  <nav class="level">
     <div class="level-item has-text-centered">
       <div>
         <p class="heading">Average error</p>
-        <p class="title">{{ avg_error }}</p>
+        {% if avg_error %}
+        <p class="title">{{ avg_error|naturalduration }}</p>
+        {% else %}
+        <p class="title">None</p>
+        {% endif %}
       </div>
     </div>
   </nav>
 
   <section class="section">
-    <div class="container">
-
     <div class="columns is-centered">
       <div class="column is-one-third">
         <div class="box">
@@ -87,21 +124,15 @@
         </div>
       </div>
     </div>
-
   </section>
 
-  <section class="section">
+      <h2 class="title">Latest matches</h2>
 
-    <div class="container">
-
-        <h2 class="title">Latest matches</h2>
-
+      <div class="container">
         <div class="tile is-ancestor" style="flex-wrap: wrap;">
           {% for match in matches %}
           <div class="tile is-4 is-parent">
-
             <div class="tile is-child">
-
               <a class="card-link" href="match/{{ match.id }}">
                 <div class="card">
                   <header class="card-header">
@@ -111,25 +142,29 @@
                   </header>
                   <div class="card-content">
                     <div class="content">
-                      <p>
-                        Started at {{ match.started_at }}
-                        <br>
-                        Predicted duration is {{ match.predicted_duration }}
-                        <br>
+                      <ul>
+
+                        <li>Started {{ match.started_at|naturaltime }}</li>
+                        <li>Predicted duration is {{ match.predicted_duration|naturalduration }}</li>
+
                         {% if match.ended_at %}
-                        True duration is {{ match.true_duration }}
+                        <li>True duration is {{ match.true_duration|naturalduration }}</li>
                         {% else %}
-                        Still in progress
+                        <li>Still in progress <i class="fas fa-spinner fa-pulse"></i></li>
                         {% endif %}
 
-                      </p>
+                        {% if match.absolute_error %}
+                        <li>Off by {{ match.absolute_error|naturalduration }}</li>
+                        {% endif %}
+
+                      </ul>
                     </div>
                   </div>
                   <footer class="card-footer">
                     <p class="card-footer-item tags">
-                      <span class="tag is-success">{{ match.region.full_name }}</span>
-                      <span class="tag is-link">{{ match.mode }}</span>
-                      <span class="tag is-warning">{{ match.type }}</span>
+                      <span class="tag is-success is-family-code">{{ match.region.full_name }}</span>
+                      <span class="tag is-link is-family-code">{{ match.mode }}</span>
+                      <span class="tag is-warning is-family-code">{{ match.type }}</span>
                     </p>
                   </footer>
                 </div>
@@ -138,9 +173,35 @@
           </div>
           {% endfor %}
         </div>
+      </div>
 
-    </div>
-  </section>
+      <div class="container">
+        <div class="columns is-centered">
+          <div class="column is-one-third" style="text-align: center;">
+            {% if matches.has_previous %}
+            <a class="pagination-previous" href="?page={{ matches.previous_page_number }}">Previous page</a>
+            {% endif %}
+            {% if matches.has_next %}
+            <a class="pagination-next" href="?page={{ matches.next_page_number }}">Next page</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+  <script>
+  document.querySelectorAll('.modal-button').forEach(function(el) {
+  el.addEventListener('click', function() {
+    var target = document.querySelector(el.getAttribute('data-target'));
+
+    target.classList.add('is-active');
+
+    target.querySelector('.modal-close').addEventListener('click',   function() {
+        target.classList.remove('is-active');
+     });
+  });
+});
+  </script>
+
 {% endblock %}
 
 <style>

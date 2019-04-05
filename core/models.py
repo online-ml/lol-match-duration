@@ -53,11 +53,19 @@ class Match(BaseModel):
         return (self.predicted_ended_at - self.started_at) if self.predicted_ended_at else None
 
     @property
+    def absolute_error(self):
+        true_duration = self.true_duration
+        predicted_duration = self.predicted_duration
+        if true_duration and predicted_duration:
+            return abs(true_duration - predicted_duration)
+        return None
+
+    @property
     def mode(self):
         if not self.raw_info:
             return None
         try:
-            return self.raw_info['match']['gameMode']
+            return self.raw_info['gameMode']
         except KeyError:
             return None
 
@@ -66,7 +74,7 @@ class Match(BaseModel):
         if not self.raw_info:
             return None
         try:
-            return self.raw_info['match']['gameType']
+            return self.raw_info['gameType']
         except KeyError:
             return None
 

@@ -3,11 +3,11 @@ version: '3.4'
 x-app-variables: &app-variables
   DJANGO_SETTINGS_MODULE: lolmd.settings.dev
   SECRET_KEY: ${SECRET_KEY:-Keep_it_secret,_keep_it_safe}
+  RIOT_API_KEY: ${RIOT_API_KEY}
   DB_NAME: lolmd
   HEARTBEAT_RATE: 60
   REDIS_HOST: redis
   REDIS_PORT: 6379
-  REDIS_DB: 0
   REDIS_PASSWORD: ${REDIS_PASSWORD:-redis}
   ADMIN_PASSWORD: ${ADMIN_PASSWORD:-creme}
 
@@ -32,6 +32,7 @@ services:
       && python manage.py add_regions
       && python manage.py add_models
       && python manage.py add_admins
+      && python manage.py poll_random_matches
       && python manage.py runserver 0.0.0.0:8000"
     volumes:
       - .:/code

@@ -1,7 +1,7 @@
 from django import shortcuts
 from django.db.models import Avg, F, Func, ExpressionWrapper, fields
 from django.contrib import messages
-import django_rq
+from django.core import paginator
 
 from . import exceptions
 from . import forms
@@ -22,11 +22,9 @@ def index(request):
             try:
                 match_id = services.process_match(
                     summoner_name=form.cleaned_data['summoner_name'],
-                    region_short_name=form.cleaned_data['region']
+                    region=form.cleaned_data['region']
                 )
-            except (exceptions.MatchAlreadyInserted,
-                    exceptions.MatchAlreadyEnded,
-                    exceptions.SummonerNotFound) as exc:
+            except Exception as exc:
                 messages.error(request, str(exc))
                 return shortcuts.redirect('index')
 
@@ -37,21 +35,22 @@ def index(request):
             return shortcuts.redirect('index')
 
     duration = ExpressionWrapper(
-        Func(F('predicted_ended_at') - F('started_at'), function='ABS'),
+        Func(F('predicted_ended_at') - F('ended_at'), function='ABS'),
         output_field=fields.DurationField()
     )
-
     agg = models.Match.objects.exclude(ended_at__isnull=True)\
                               .annotate(duration=duration)\
                               .aggregate(Avg('duration'))
-    avg_error = agg['duration__avg']
+
+    matches = models.Match.objects.prefetch_related('region').order_by('-created_at')
+    matches_pag = paginator.Paginator(matches, 15)
 
     context = {
-        'matches': models.Match.objects.prefetch_related('region').order_by('-created_at'),
+        'n_ongoing': models.Match.objects.exclude(rq_job_id__isnull=True).count(),
+        'n_fit': models.Match.objects.exclude(rq_job_id__isnull=False).count(),
+        'avg_error': agg['duration__avg'],
         'form': forms.AddMatchForm(),
-        'n_ongoing': django_rq.get_scheduler('default').count(),
-        'n_predictions': models.Match.objects.exclude(predicted_ended_at__isnull=True).count(),
-        'avg_error': str(avg_error).split('.')[0]
+        'matches': matches_pag.get_page(request.GET.get('page')),
     }
 
     return shortcuts.render(request, 'index.html', context)

@@ -3,6 +3,7 @@ import pytz
 import random
 from urllib.parse import urljoin
 
+from django import http
 from django import shortcuts
 from django.db import transaction
 from django.conf import settings
@@ -13,10 +14,10 @@ from . import exceptions
 from . import models
 
 
-def get_from_riot_api(path, region, raise_with_404=None):
+def get_from_riot_api(path, region):
     """Convenience method for making a GET request from Riot's API."""
 
-    if isinstance(region, str):
+    if not isinstance(region, models.Region):
         region = models.Region.get(short_name=region)
 
     url = urljoin(f'https://{region.platform.lower()}.api.riotgames.com', path)
@@ -24,17 +25,21 @@ def get_from_riot_api(path, region, raise_with_404=None):
     req = requests.get(url, params={'api_key': settings.RIOT_API_KEY})
 
     if not req.ok:
-        if raise_with_404 and req.status_code == 404:
-            raise raise_with_404
+        if req.status_code == 404:
+            raise http.Http404(url)
+            return
         raise RuntimeError(req.json())
+        return
 
-    return req.json()
+    data = req.json()
+
+    return data
 
 
 def fetch_summoner_by_name(summoner_name, region):
     """Fetchs summoner information using a name."""
     path = f'/lol/summoner/v4/summoners/by-name/{summoner_name}'
-    return get_from_riot_api(path, region, exceptions.SummonerNotFound())
+    return get_from_riot_api(path, region)
 
 
 def fetch_active_match_by_summoner_id(summoner_id, region):
@@ -49,30 +54,41 @@ def fetch_match(match_api_id, region):
     return get_from_riot_api(path, region)
 
 
-def fetch_random_match(region):
+def fetch_random_matches(region):
     """Fetch a random match."""
     path = f'/lol/spectator/v4/featured-games'
-    matches = get_from_riot_api(path, region)
-    return random.choice(matches['gameList'])
+    matches = get_from_riot_api(path, region)['gameList']
+    random.shuffle(matches)
+    return matches
 
 
 def fetch_champion_mastery(summoner_id, champion_id, region):
     """Fetch champion mastery information using a summoner ID."""
     path = f'/lol/champion-mastery/v4/champion-masteries/by-summoner/{summoner_id}/by-champion/{champion_id}'
-    return get_from_riot_api(path, region)
+    data = get_from_riot_api(path, region)
+    data.pop('championId', None)
+    data.pop('summonerId', None)
+    return data
 
 
 def fetch_total_champion_mastery_score(summoner_id, region):
-    """Fetch champion mastery information using a summoner ID."""
+    """Fetch total champion mastery using a summoner ID."""
     path = f'/lol/champion-mastery/v4/scores/by-summoner/{summoner_id}'
     return get_from_riot_api(path, region)
 
 
-def process_match(summoner_name, region_short_name, raise_has_ended=True):
+def fetch_summoner_ranking(summoner_id, region):
+    """Fetch ranking information using a summoner ID."""
+    path = f'/lol/league/v4/positions/by-summoner/{summoner_id}'
+    return get_from_riot_api(path, region)
+
+
+def process_match(summoner_name, region, raise_has_ended=True):
     """Builds and returns a Game instance using a summoner name and a region."""
 
     # Get the region
-    region = models.Region.objects.get(short_name=region_short_name)
+    if not isinstance(region, models.Region):
+        region = models.Region.objects.get(short_name=region)
 
     # Fetch summoner information
     summoner = fetch_summoner_by_name(summoner_name, region)
@@ -81,27 +97,54 @@ def process_match(summoner_name, region_short_name, raise_has_ended=True):
     match_info = fetch_active_match_by_summoner_id(summoner['id'], region)
 
     # Check if the match has ended or not
-    if raise_has_ended and match_info.get('gameDuration', -1) > 0:
+    if raise_has_ended and 'gameDuration' in match_info:
         raise exceptions.MatchAlreadyEnded()
 
     # Check if the match has already been inserted
     if models.Match.objects.filter(api_id=match_info['gameId'], region=region).exists():
         raise exceptions.MatchAlreadyInserted()
 
+    # Add extra information
+    for i, participant in enumerate(match_info['participants']):
+
+        # Champion mastery for the current champion
+        match_info['participants'][i]['mastery'] = fetch_champion_mastery(
+            summoner_id=participant['summonerId'],
+            champion_id=participant['championId'],
+            region=region
+        )
+
+        # Total champion mastery score, which is the sum of individual champion mastery levels
+        match_info['participants'][i]['total_mastery'] = fetch_total_champion_mastery_score(
+            summoner_id=participant['summonerId'],
+            region=region
+        )
+
+        # Current ranked position
+        match_info['participants'][i]['position'] = fetch_summoner_ranking(
+            summoner_id=participant['summonerId'],
+            region=region
+        )
+
+    # The game length is the current amount of time spent in the game, we don't need it
+    match_info.pop('gameLength', None)
+    match_info.pop('observers', None)
+    match_info.pop('platformId', None)
+
     # Build the Match instance
     match = models.Match(
         api_id=match_info['gameId'],
         region=region,
-        raw_info={
-            'match': match_info
-        },
+        raw_info=match_info,
         started_at=pytz.utc.localize(dt.datetime.fromtimestamp(match_info['gameStartTime'] / 1000))
     )
 
     # Predict the match duration
-    model = models.Model.objects.get(name='Chateau Mangue')
+    model = models.Model.objects.get(name=settings.MODEL_NAME)
     duration = model.pipeline.predict_one(match.raw_info)
-    match.predicted_ended_at = match.started_at + dt.timedelta(seconds=duration)
+    min_duration = 10 if match.mode == 'ARAM' else 15
+    predicted_duration = max(dt.timedelta(seconds=duration), dt.timedelta(minutes=min_duration))
+    match.predicted_ended_at = match.started_at + predicted_duration
     match.predicted_by = model
     match.save()
 
@@ -138,9 +181,10 @@ def try_to_end_match(match_id):
         raise RuntimeError(req.json())
 
     match_info = req.json()
-    duration = match_info.get('gameDuration', -1)
+    duration = match_info.get('gameDuration')
 
-    if duration < 0:
+    # Can't do anything if the game hasn't ended yet
+    if duration is None:
         return
 
     # Set the match's end time

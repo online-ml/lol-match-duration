@@ -28,7 +28,7 @@ class Command(base.BaseCommand):
             Region('NA', 'North America', 'NA1'),
             Region('OCE', 'Oceania', 'OC1'),
             Region('TR', 'Turkey', 'TR1'),
-            Region('RU', 'Russia', 'RU1'),
+            Region('RU', 'Russia', 'RU'),
         ]
 
         for region in regions:

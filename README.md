@@ -4,19 +4,25 @@
 
 ### Development
 
+Create an `.env` file with the following structure:
+
+```sh
+RIOT_API_KEY=https://developer.riotgames.com/
+```
+
 You first have to build the stack.
 
 ```sh
 docker-compose build
 ```
 
-You only have to build the stack once. However you have to rebuild it if you add or modify a service. You can then start the stack.
+You can then start the stack.
 
 ```sh
-docker-compose up
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
-You can now navigate to the following pages:
+You only have to build the stack once. However you have to rebuild it if you add or modify a service. You can now navigate to the following pages:
 
 - `localhost:8000` for the app
 - `localhost:8082` for [Redis Commander](http://joeferner.github.io/redis-commander/)
@@ -25,10 +31,7 @@ The following commands should suffice to cover most use cases.
 
 ```sh
 # Start the stack
-docker-compose up
-
-# Stop the stack
-docker-compose down
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 # Visualize application logs
 docker-compose logs
@@ -38,22 +41,20 @@ docker rm -f $(docker ps -a -q)
 
 # Remove unused volumes
 docker volume prune
+
+# Delete everything (use with care)
+docker stop $(docker container ls -a -q) && docker system prune -a -f --volumes
 ```
 
 ### Production
 
-Create a `.env` file with the following structure:
+Create an `.env` file with the following structure:
 
 ```sh
 SECRET_KEY=Keep_it_secret,_keep_it_safe
-
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-
-CASSANDRA_USER=cassandra
-CASSANDRA_PASSWORD=cassandra
-
-ADMIN_PASSWORD=houdini
+RIOT_API_KEY=https://developer.riotgames.com/
+REDIS_PASSWORD=redis
+ADMIN_PASSWORD=creme
 ```
 
 ## Useful resources

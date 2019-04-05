@@ -2,9 +2,10 @@ import os
 
 import redis
 
-# DaRkHaWk72
 
-RIOT_API_KEY = 'RGAPI-0f0cd528-9c25-4494-bc33-2e16af5a385f'
+MODEL_NAME = 'v0'
+
+RIOT_API_KEY = os.environ['RIOT_API_KEY']
 
 APP_DOMAIN = 'localhost:8000'
 
@@ -31,6 +32,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
 
     'django_rq',
 
@@ -80,7 +82,7 @@ DATABASES = {
 REDIS_POOL = redis.ConnectionPool(
     host=os.environ['REDIS_HOST'],
     port=os.environ['REDIS_PORT'],
-    db=os.environ['REDIS_DB'],
+    db=0,
     password=os.environ['REDIS_PASSWORD'],
     decode_responses=True
 )
@@ -92,7 +94,7 @@ RQ_QUEUES = {
     'default': {
         'HOST': os.environ['REDIS_HOST'],
         'PORT': os.environ['REDIS_PORT'],
-        'DB': os.environ['REDIS_DB'],
+        'DB': 0,
         'PASSWORD': os.environ['REDIS_PASSWORD'],
         'DEFAULT_TIMEOUT': 360,
     }
