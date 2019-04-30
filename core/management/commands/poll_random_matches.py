@@ -6,7 +6,6 @@ from django.core.management import base
 from django.utils import timezone
 import django_rq
 
-from core import exceptions
 from core import models
 from core import services
 
@@ -50,7 +49,7 @@ class Command(base.BaseCommand):
 
         django_rq.get_scheduler('default').schedule(
             scheduled_time=timezone.now() + dt.timedelta(seconds=60),
-            interval=60 * 2,
+            interval=60,
             func=process_random_match,
             repeat=None  # None means forever
         )
