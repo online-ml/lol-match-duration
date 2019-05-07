@@ -14,7 +14,7 @@ class BaseModel(models.Model):
         abstract = True
 
 
-class Model(BaseModel):
+class CremeModel(BaseModel):
     name = models.TextField(unique=True)
     pipeline = picklefield.PickledObjectField()
 

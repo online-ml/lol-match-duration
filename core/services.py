@@ -140,7 +140,7 @@ def process_match(summoner_name, region, raise_has_ended=True):
     )
 
     # Predict the match duration
-    model = models.Model.objects.get(name=settings.MODEL_NAME)
+    model = models.CremeModel.objects.get(name=settings.MODEL_NAME)
     duration = model.predict_one(match.raw_info)
     min_duration = 10 if match.mode == 'ARAM' else 15
     predicted_duration = max(dt.timedelta(seconds=duration), dt.timedelta(minutes=min_duration))
@@ -194,7 +194,7 @@ def try_to_end_match(match_id):
     # https://medium.com/@hakibenita/how-to-manage-concurrency-in-django-models-b240fed4ee2
     with transaction.atomic():
         # Update the online learning model
-        model = models.Model.objects.get(id=match.predicted_by.id)
+        model = models.CremeModel.objects.get(id=match.predicted_by.id)
         model.fit_one(match.raw_info, match.true_duration.seconds)
         model.save()
 
