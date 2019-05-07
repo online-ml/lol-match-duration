@@ -22,6 +22,13 @@ class Model(BaseModel):
         db_table = 't_models'
         verbose_name_plural = 'models'
 
+    def fit_one(self, x, y):
+        self.pipeline.fit_one(x, y)
+        return self
+
+    def predict_one(self, x):
+        return self.pipeline.predict_one(x)
+
 
 class Region(BaseModel):
     short_name = models.TextField()

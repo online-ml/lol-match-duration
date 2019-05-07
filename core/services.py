@@ -141,7 +141,7 @@ def process_match(summoner_name, region, raise_has_ended=True):
 
     # Predict the match duration
     model = models.Model.objects.get(name=settings.MODEL_NAME)
-    duration = model.pipeline.predict_one(match.raw_info)
+    duration = model.predict_one(match.raw_info)
     min_duration = 10 if match.mode == 'ARAM' else 15
     predicted_duration = max(dt.timedelta(seconds=duration), dt.timedelta(minutes=min_duration))
     match.predicted_ended_at = match.started_at + predicted_duration
@@ -195,7 +195,7 @@ def try_to_end_match(match_id):
     with transaction.atomic():
         # Update the online learning model
         model = models.Model.objects.get(id=match.predicted_by.id)
-        model.pipeline.fit_one(match.raw_info, match.true_duration.seconds)
+        model.fit_one(match.raw_info, match.true_duration.seconds)
         model.save()
 
     # Stop polling the match
