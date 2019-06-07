@@ -6,6 +6,11 @@ from django import template
 register = template.Library()
 
 
+@register.filter()
+def secondsduration(seconds):
+    return dt.timedelta(seconds=seconds)
+
+
 @register.filter
 def naturalduration(timedelta):
     """Converts a timedelta to a detailed human readable string.

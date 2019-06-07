@@ -2,9 +2,13 @@
 
 This is a simple project to demonstrate how `creme` may be used to build a "real-time" machine learning app. The idea is to predict the duration of LoL matches using information that is available at the start of the match. Once the match ends, the true duration is used to update the model.
 
+## Screenshots
+
 ![home](screenshots/home.png)
 
 ![matches](screenshots/matches.png)
+
+![matches](screenshots/match.png)
 
 ## Architecture
 
@@ -12,8 +16,8 @@ This is a simple project to demonstrate how `creme` may be used to build a "real
 
 The goal of this project is to demonstrate that online learning is easy to put in place. Indeed predicting and training are both done inside web requests.
 
-- The model is stored in [`core/management/commands/add_models.py`](core/management/commands/add_models.py)
-- Predictions happen in the `process_match` function of [`core/services.py`](core/services.py)
+- The machine learning model is stored in [`core/management/commands/add_models.py`](core/management/commands/add_models.py)
+- Predictions happen in the `queue_match` function of [`core/services.py`](core/services.py)
 - Training happens in the `try_to_end_match` function of [`core/services.py`](core/services.py)
 - The average error is computed in the `index` function of [`core/views.py`](core/views.py)
 
@@ -45,6 +49,12 @@ You only have to build the stack once. However you have to rebuild it if you add
 - `localhost:8082` for [Redis Commander](http://joeferner.github.io/redis-commander/)
 
 Run `docker-compose down` to spin the stack down.
+
+:warning: If you want to delete absolutely everything then run the following command.
+
+```sh
+docker container stop $(docker container ls -a -q) && docker system prune -a -f --volumes
+```
 
 ### Production
 

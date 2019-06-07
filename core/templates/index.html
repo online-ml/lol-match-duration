@@ -37,14 +37,14 @@
   <nav class="level">
     <div class="level-item has-text-centered">
       <div>
-        <p class="heading">Ongoing matches</p>
-        <p class="title">{{ n_ongoing }}</p>
+        <p class="heading">Queued matches</p>
+        <p class="title">{{ n_queued | intcomma }}</p>
       </div>
     </div>
     <div class="level-item has-text-centered">
       <div>
-        <p class="heading">Matches analyzed</p>
-        <p class="title">{{ n_fit }}</p>
+        <p class="heading">Analyzed matches</p>
+        <p class="title">{{ n_fit | intcomma }}</p>
       </div>
     </div>
   </nav>
@@ -52,9 +52,9 @@
   <nav class="level">
     <div class="level-item has-text-centered">
       <div>
-        <p class="heading">Average error</p>
-        {% if avg_error %}
-        <p class="title">{{ avg_error|naturalduration }}</p>
+        <p class="heading">Mean absolute error</p>
+        {% if mae %}
+        <p class="title">{{ mae | naturalduration }}</p>
         {% else %}
         <p class="title">None</p>
         {% endif %}
@@ -80,7 +80,7 @@
               <div class="control">
                 <input
                   class="input is-medium"
-                  placeholder="Faker"
+                  placeholder="imaqtpie"
                   type="text"
                   name="{{ form.summoner_name.name }}"
                   id="{{ form.summoner_name.id_for_label }}"
@@ -88,7 +88,6 @@
                     value="{{ form.summoner_name.value|stringformat:'s' }}"
                   {% endif %}
                   maxlength="{{ form.summoner_name.field.max_length }}"
-                  {% if form.summoner_name.field.required %}required{% endif %}
                 >
               </div>
             </div>
@@ -102,7 +101,12 @@
                     id="{{ form.region.id_for_label }}"
                   >
                     {% for region in form.fields.region.choices %}
-                    <option value="{{ region.0 }}">{{ region.1 }}</option>
+                    <option
+                      value="{{ region.0 }}"
+                      {% if region.0 == "NA" %}selected{% endif %}
+                    >
+                      {{ region.1 }}
+                    </option>
                     {% endfor %}
                   </select>
                 </div>
@@ -116,7 +120,7 @@
 
             <div class="field is-grouped is-grouped-centered">
               <div class="control">
-                <button type="submit" class="button is-info is-outlined">Submit</button>
+                <button data-target="pageloader" type="submit" class="button is-info is-outlined">Submit</button>
               </div>
             </div>
 
@@ -127,6 +131,8 @@
   </section>
 
       <h2 class="title">Latest matches</h2>
+
+        <p class="subtitle">You can click each box for more information.</p>
 
       <div class="container">
         <div class="tile is-ancestor" style="flex-wrap: wrap;">
@@ -145,16 +151,16 @@
                       <ul>
 
                         <li>Started {{ match.started_at|naturaltime }}</li>
-                        <li>Predicted duration is {{ match.predicted_duration|naturalduration }}</li>
+                        <li>Predicted duration is {{ match.predicted_duration | secondsduration | naturalduration }}</li>
 
-                        {% if match.ended_at %}
-                        <li>True duration is {{ match.true_duration|naturalduration }}</li>
+                        {% if match.duration %}
+                        <li>True duration is {{ match.duration | secondsduration | naturalduration }}</li>
                         {% else %}
                         <li>Still in progress <i class="fas fa-spinner fa-pulse"></i></li>
                         {% endif %}
 
                         {% if match.absolute_error %}
-                        <li>Off by {{ match.absolute_error|naturalduration }}</li>
+                        <li>Off by {{ match.absolute_error | secondsduration | naturalduration }}</li>
                         {% endif %}
 
                       </ul>
@@ -188,19 +194,44 @@
         </div>
       </div>
 
-  <script>
-  document.querySelectorAll('.modal-button').forEach(function(el) {
+      <!-- Page loader for when the user submits the form -->
+      <div id="pageloader" class="pageloader"><span class="title">
+        Fetching data (slow) and making a prediction (fast)
+      </span></div>
+
+<script>
+
+console.log('HEYHEYHEY')
+
+// "What is this?" modal handling
+document.querySelectorAll('.modal-button').forEach(function(el) {
   el.addEventListener('click', function() {
     var target = document.querySelector(el.getAttribute('data-target'));
 
     target.classList.add('is-active');
 
-    target.querySelector('.modal-close').addEventListener('click',   function() {
+    target.querySelector('.modal-close').addEventListener('click', function() {
         target.classList.remove('is-active');
      });
   });
 });
-  </script>
+
+// Page loader handling
+var buttons = document.querySelectorAll('button[data-target]');
+
+[].forEach.call(buttons, function(button) {
+  button.addEventListener('click', function(e) {
+    var pageloader = document.getElementById(e.currentTarget.dataset.target);
+    if (pageloader) {
+      pageloader.classList.toggle('is-active');
+      var pageloaderTimeout = setTimeout( function() {
+        pageloader.classList.toggle('is-active');
+        clearTimeout(pageloaderTimeout);
+      }, 3000 );
+    }
+  });
+});
+</script>
 
 {% endblock %}
 

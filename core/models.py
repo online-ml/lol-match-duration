@@ -1,8 +1,15 @@
 import uuid
 
 from django.db import models
-import jsonfield
+from django.contrib.postgres.fields import JSONField
 from picklefield import fields as picklefield
+
+
+__all__ = [
+    'CremeModel',
+    'Match',
+    'Region'
+]
 
 
 class BaseModel(models.Model):
@@ -19,15 +26,25 @@ class CremeModel(BaseModel):
     pipeline = picklefield.PickledObjectField()
 
     class Meta:
-        db_table = 't_models'
+        db_table = 't_creme_models'
         verbose_name_plural = 'models'
 
     def fit_one(self, x, y):
-        self.pipeline.fit_one(x, y)
-        return self
+        """Attempts to update the model and indicates if the update was successful or not."""
+        return CremeModel.objects\
+                         .filter(id=self.id, updated_at=self.updated_at)\
+                         .update(pipeline=self.pipeline.fit_one(x, y)) > 0
 
     def predict_one(self, x):
-        return self.pipeline.predict_one(x)
+        return (
+            self.pipeline.predict_one(x),
+            CremeModel.objects
+                      .filter(id=self.id, updated_at=self.updated_at)
+                      .update(pipeline=self.pipeline) > 0
+        )
+
+    def __str__(self):
+        return f'Model {self.name}'
 
 
 class Region(BaseModel):
@@ -39,33 +56,31 @@ class Region(BaseModel):
         db_table = 't_regions'
         verbose_name_plural = 'regions'
 
+    def __str__(self):
+        return f'{self.full_name} ({self.short_name})'
+
 
 class Match(BaseModel):
-    api_id = models.IntegerField()
+    api_id = models.TextField(unique=True)
     rq_job_id = models.UUIDField(null=True)
-    raw_info = jsonfield.JSONField(null=True)
+    raw_info = JSONField(null=True)
     started_at = models.DateTimeField()
-    ended_at = models.DateTimeField(blank=True, null=True)
-    predicted_ended_at = models.DateTimeField(blank=True, null=True)
+    duration = models.PositiveSmallIntegerField(null=True)
+    predicted_duration = models.PositiveSmallIntegerField(null=True)
+    winning_team_id = models.PositiveSmallIntegerField(null=True)
 
     region = models.ForeignKey(Region, null=True, on_delete=models.SET_NULL)
-    predicted_by = models.ForeignKey(Model, null=True, on_delete=models.SET_NULL)
-
-    @property
-    def true_duration(self):
-        return (self.ended_at - self.started_at) if self.ended_at else None
-
-    @property
-    def predicted_duration(self):
-        return (self.predicted_ended_at - self.started_at) if self.predicted_ended_at else None
+    predicted_by = models.ForeignKey(CremeModel, null=True, on_delete=models.SET_NULL)
 
     @property
     def absolute_error(self):
-        true_duration = self.true_duration
-        predicted_duration = self.predicted_duration
-        if true_duration and predicted_duration:
-            return abs(true_duration - predicted_duration)
+        if self.duration and self.predicted_duration:
+            return abs(self.duration - self.predicted_duration)
         return None
+
+    @property
+    def has_ended(self):
+        return self.duration is not None
 
     @property
     def mode(self):
@@ -88,3 +103,6 @@ class Match(BaseModel):
     class Meta:
         db_table = 't_matches'
         verbose_name_plural = 'matches'
+
+    def __str__(self):
+        return f'Match {self.api_id}'

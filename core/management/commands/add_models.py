@@ -1,13 +1,10 @@
-import copy
 import statistics
 
 import creme
 from creme import compose
-from creme import dummy
 from creme import linear_model
 from creme import optim
 from creme import preprocessing
-from creme import stats
 from django.core.management import base
 
 from core import models
@@ -76,35 +73,35 @@ def process_match(match):
     }
 
 
+MODELS = {
+    'v0': (
+        compose.FuncTransformer(process_match) |
+        compose.TransformerUnion([
+            compose.Whitelister(
+                'champion_mastery_points_ratio',
+                'total_mastery_points_ratio',
+                'rank_ratio',
+            ),
+            preprocessing.OneHotEncoder('mode', sparse=False),
+            preprocessing.OneHotEncoder('type', sparse=False)
+        ]) |
+        preprocessing.StandardScaler() |
+        linear_model.LinearRegression(optim.VanillaSGD(0.005))
+    )
+}
+
+
 class Command(base.BaseCommand):
 
     def handle(self, *args, **options):
 
         print(f'Adding models with creme version {creme.__version__}')
 
-        pipeline = compose.FuncTransformer(process_match)
-        pipeline |= compose.TransformerUnion([
-            compose.Whitelister([
-                'mode',
-                'champion_mastery_points_ratio',
-                'total_mastery_points_ratio',
-                'rank_ratio',
-            ]),
-            preprocessing.OneHotEncoder('type')
-        ])
-        optimizer = optim.VanillaSGD(0.005)
-        lin_reg = preprocessing.StandardScaler() | linear_model.LinearRegression(optimizer)
-        pipeline |= compose.SplitRegressor(
-            on='mode',
-            models={
-                'ARAM': copy.deepcopy(lin_reg),
-                'CLASSIC': copy.deepcopy(lin_reg)
-            },
-            default_model=dummy.StatisticRegressor(stats.Mean())
-        )
+        for name, pipeline in MODELS.items():
 
-        model = models.Model(
-            name='v0',
-            pipeline=pipeline
-        )
-        model.save()
+            if models.CremeModel.objects.filter(name=name).exists():
+                print(f'{name} has already been added')
+                continue
+
+            models.CremeModel(name=name, pipeline=pipeline).save()
+            print(f'Added {name}')

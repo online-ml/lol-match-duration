@@ -4,7 +4,6 @@ from . import models
 
 
 def get_region_choices():
-    # you place some logic here
     return [(region.short_name, region.full_name) for region in models.Region.objects.all()]
 
 

@@ -1,127 +1,69 @@
 import datetime as dt
+import logging
 import pytz
-import random
-from urllib.parse import urljoin
 
-from django import http
 from django import shortcuts
-from django.db import transaction
 from django.conf import settings
 import django_rq
-import requests
 
 from . import exceptions
 from . import models
+from . import api
 
 
-def get_from_riot_api(path, region):
-    """Convenience method for making a GET request from Riot's API."""
-
-    if not isinstance(region, models.Region):
-        region = models.Region.get(short_name=region)
-
-    url = urljoin(f'https://{region.platform.lower()}.api.riotgames.com', path)
-
-    req = requests.get(url, params={'api_key': settings.RIOT_API_KEY})
-
-    if not req.ok:
-        if req.status_code == 404:
-            raise http.Http404(url)
-            return
-        raise RuntimeError(req.json())
-        return
-
-    data = req.json()
-
-    return data
+__all__ = [
+    'queue_match',
+    'try_to_end_match'
+]
 
 
-def fetch_summoner_by_name(summoner_name, region):
-    """Fetchs summoner information using a name."""
-    path = f'/lol/summoner/v4/summoners/by-name/{summoner_name}'
-    return get_from_riot_api(path, region)
+logger = logging.getLogger(__name__)
 
 
-def fetch_active_match_by_summoner_id(summoner_id, region):
-    """Fetchs match information using a summoner ID."""
-    path = f'/lol/spectator/v4/active-games/by-summoner/{summoner_id}'
-    return get_from_riot_api(path, region)
-
-
-def fetch_match(match_api_id, region):
-    """Fetch match information using a match ID."""
-    path = f'/lol/match/v4/matches/{match_api_id}'
-    return get_from_riot_api(path, region)
-
-
-def fetch_random_matches(region):
-    """Fetch a random match."""
-    path = f'/lol/spectator/v4/featured-games'
-    matches = get_from_riot_api(path, region)['gameList']
-    random.shuffle(matches)
-    return matches
-
-
-def fetch_champion_mastery(summoner_id, champion_id, region):
-    """Fetch champion mastery information using a summoner ID."""
-    path = f'/lol/champion-mastery/v4/champion-masteries/by-summoner/{summoner_id}/by-champion/{champion_id}'
-    data = get_from_riot_api(path, region)
-    data.pop('championId', None)
-    data.pop('summonerId', None)
-    return data
-
-
-def fetch_total_champion_mastery_score(summoner_id, region):
-    """Fetch total champion mastery using a summoner ID."""
-    path = f'/lol/champion-mastery/v4/scores/by-summoner/{summoner_id}'
-    return get_from_riot_api(path, region)
-
-
-def fetch_summoner_ranking(summoner_id, region):
-    """Fetch ranking information using a summoner ID."""
-    path = f'/lol/league/v4/positions/by-summoner/{summoner_id}'
-    return get_from_riot_api(path, region)
-
-
-def process_match(summoner_name, region, raise_has_ended=True):
-    """Builds and returns a Game instance using a summoner name and a region."""
+def queue_match(summoner_name, region, raise_if_exists=False):
+    """Queues a match and returns it's database ID."""
 
     # Get the region
     if not isinstance(region, models.Region):
         region = models.Region.objects.get(short_name=region)
 
     # Fetch summoner information
-    summoner = fetch_summoner_by_name(summoner_name, region)
+    summoner = api.fetch_summoner_by_name(summoner_name, region)
 
     # Fetch current match information from the summoner's ID
-    match_info = fetch_active_match_by_summoner_id(summoner['id'], region)
+    match_info = api.fetch_active_match_by_summoner_id(summoner['id'], region)
 
     # Check if the match has ended or not
-    if raise_has_ended and 'gameDuration' in match_info:
-        raise exceptions.MatchAlreadyEnded()
+    if 'gameDuration' in match_info:
+        raise ValueError('The match has already ended')
 
     # Check if the match has already been inserted
-    if models.Match.objects.filter(api_id=match_info['gameId'], region=region).exists():
-        raise exceptions.MatchAlreadyInserted()
+    try:
+        match = models.Match.objects.get(api_id=match_info['gameId'], region=region)
+        if raise_if_exists:
+            raise exceptions.MatchAlreadyInserted
+        return match.id
+    except exceptions.ObjectDoesNotExist:
+        pass
 
     # Add extra information
     for i, participant in enumerate(match_info['participants']):
 
         # Champion mastery for the current champion
-        match_info['participants'][i]['mastery'] = fetch_champion_mastery(
+        match_info['participants'][i]['mastery'] = api.fetch_champion_mastery(
             summoner_id=participant['summonerId'],
             champion_id=participant['championId'],
             region=region
         )
 
         # Total champion mastery score, which is the sum of individual champion mastery levels
-        match_info['participants'][i]['total_mastery'] = fetch_total_champion_mastery_score(
+        match_info['participants'][i]['total_mastery'] = api.fetch_total_champion_mastery(
             summoner_id=participant['summonerId'],
             region=region
         )
 
         # Current ranked position
-        match_info['participants'][i]['position'] = fetch_summoner_ranking(
+        match_info['participants'][i]['position'] = api.fetch_summoner_ranking(
             summoner_id=participant['summonerId'],
             region=region
         )
@@ -133,19 +75,27 @@ def process_match(summoner_name, region, raise_has_ended=True):
 
     # Build the Match instance
     match = models.Match(
-        api_id=match_info['gameId'],
+        api_id=str(match_info['gameId']),
         region=region,
         raw_info=match_info,
         started_at=pytz.utc.localize(dt.datetime.fromtimestamp(match_info['gameStartTime'] / 1000))
     )
 
     # Predict the match duration
-    model = models.CremeModel.objects.get(name=settings.MODEL_NAME)
-    duration = model.predict_one(match.raw_info)
-    min_duration = 10 if match.mode == 'ARAM' else 15
-    predicted_duration = max(dt.timedelta(seconds=duration), dt.timedelta(minutes=min_duration))
-    match.predicted_ended_at = match.started_at + predicted_duration
-    match.predicted_by = model
+    ok = False
+    while not ok:
+        duration, ok = models.CremeModel.objects.get(name=settings.MODEL_NAME)\
+                             .predict_one(match.raw_info)
+        if not ok:
+            logger.warning('Optimistic logging failed when predicting')
+
+    # Clamp the prediction we know the min/max time of a match
+    min_duration = dt.timedelta(minutes=10 if match.mode == 'ARAM' else 15).seconds
+    max_duration = dt.timedelta(hours=3).seconds
+    predicted_duration = min(max(duration, min_duration), max_duration)
+
+    # Save the model to get an ID that we can give to RQ
+    match.predicted_duration = int(predicted_duration)
     match.save()
 
     # Schedule a job that calls try_to_end_match until the game ends
@@ -169,18 +119,12 @@ def try_to_end_match(match_id):
     region = match.region
 
     # Fetch the match information
-    path = f'/lol/match/v4/matches/{match.api_id}'
-    url = urljoin(f'https://{region.platform.lower()}.api.riotgames.com', path)
-    req = requests.get(url, params={'api_key': settings.RIOT_API_KEY})
-
-    # Matches that haven't finished yet return a 404
-    if req.status_code == 404:
+    try:
+        match_info = api.fetch_match(match_api_id=match.api_id, region=region)
+    except exceptions.HTTPError:
         return
 
-    if not req.ok:
-        raise RuntimeError(req.json())
-
-    match_info = req.json()
+    # Get the duration in seconds
     duration = match_info.get('gameDuration')
 
     # Can't do anything if the game hasn't ended yet
@@ -189,14 +133,20 @@ def try_to_end_match(match_id):
 
     # Set the match's end time
     match = shortcuts.get_object_or_404(models.Match, id=match_id, region=region)
-    match.ended_at = match.started_at + dt.timedelta(seconds=duration)
+    match.duration = int(duration)
 
-    # https://medium.com/@hakibenita/how-to-manage-concurrency-in-django-models-b240fed4ee2
-    with transaction.atomic():
-        # Update the online learning model
-        model = models.CremeModel.objects.get(id=match.predicted_by.id)
-        model.fit_one(match.raw_info, match.true_duration.seconds)
-        model.save()
+    # Set the winning team ID
+    if match_info['teams'][0]['win'] == 'Win':
+        match.winning_team_id = match_info['teams'][0]['teamId']
+    else:
+        match.winning_team_id = match_info['teams'][1]['teamId']
+
+    ok = False
+    while not ok:
+        ok = models.CremeModel.objects.get(name=settings.MODEL_NAME)\
+                   .fit_one(match.raw_info, match.duration)
+        if not ok:
+            logger.warning('Optimistic logging failed when fitting')
 
     # Stop polling the match
     scheduler = django_rq.get_scheduler('default')

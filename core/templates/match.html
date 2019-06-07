@@ -1,5 +1,35 @@
 {% extends "base.html" %}
 
 {% block content %}
-<p>{{ match.api_id }}</p>
+
+{% load extra_humanize %}
+
+<div class="container has-text-centered">
+  <h2 class="title">Match {{ match.api_id }}</h2>
+  <p class="card-footer-item tags">
+    <span class="tag is-success is-family-code is-medium">{{ match.region.full_name }}</span>
+    <span class="tag is-link is-family-code is-medium">{{ match.mode }}</span>
+    <span class="tag is-warning is-family-code is-medium">{{ match.type }}</span>
+  </p>
+</div>
+
+<section class="section">
+  <p class="subtitle">Predicted duration: <b>{{ match.predicted_duration | secondsduration | naturalduration }}</b></p>
+
+  {% if match.has_ended %}
+  <progress class="progress is-link" value="{{ pred_bar_percentage }}" max="100">30%</progress>
+  <p class="subtitle">True duration: <b>{{ match.duration | secondsduration | naturalduration }}</b></p>
+  <progress class="progress is-primary" value="{{ true_bar_percentage }}" max="100">15%</progress>
+  <p class="subtitle">Absolute error: <b>{{ err_duration | naturalduration }}</b></p>
+  <progress class="progress is-danger" value="{{ err_bar_percentage }}" max="100">15%</progress>
+  {% else %}
+  <p class="subtitle">The match has not ended yet.</p>
+  {% endif %}
+
+</section>
+
+<h3 class="title">Data available at the start of the match</h3>
+
+<pre style="background-color: #F0F0F0"><code class="JSON">{{ raw_info }}</code></pre>
+
 {% endblock %}

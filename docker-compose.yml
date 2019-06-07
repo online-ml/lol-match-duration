@@ -4,7 +4,11 @@ x-app-variables: &app-variables
   DJANGO_SETTINGS_MODULE: lolmd.settings.dev
   SECRET_KEY: ${SECRET_KEY:-Keep_it_secret,_keep_it_safe}
   RIOT_API_KEY: ${RIOT_API_KEY}
-  DB_NAME: lolmd
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_NAME: lolmd
+  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
   HEARTBEAT_RATE: 60
   REDIS_HOST: redis
   REDIS_PORT: 6379
@@ -12,6 +16,18 @@ x-app-variables: &app-variables
   ADMIN_PASSWORD: ${ADMIN_PASSWORD:-creme}
 
 services:
+
+  postgres:
+    restart: always
+    image: postgres:11.3
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=lolmd
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - PGDATA=/var/lib/postgresql/data/
+    ports:
+      - "5432:5432"
 
   redis:
     image: bitnami/redis:4.0.11
@@ -32,7 +48,7 @@ services:
       && python manage.py add_regions
       && python manage.py add_models
       && python manage.py add_admins
-      && python manage.py poll_random_matches
+      && python manage.py queue_random_matches
       && python manage.py runserver 0.0.0.0:8000"
     volumes:
       - .:/code
