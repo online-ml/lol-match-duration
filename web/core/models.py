@@ -61,7 +61,7 @@ class Region(BaseModel):
 
 
 class Match(BaseModel):
-    api_id = models.TextField(unique=True)
+    api_id = models.TextField()
     rq_job_id = models.UUIDField(null=True)
     raw_info = JSONField(null=True)
     started_at = models.DateTimeField()

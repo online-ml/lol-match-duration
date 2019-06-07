@@ -40,7 +40,7 @@ docker-compose build
 You can then start the stack.
 
 ```sh
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+docker-compose docker-compose.dev.yml up -d
 ```
 
 You only have to build the stack once. However you have to rebuild it if you add or modify a service. You can now navigate to the following pages:
@@ -62,7 +62,9 @@ Create an `.env` file with the following structure:
 
 ```sh
 SECRET_KEY=Keep_it_secret,_keep_it_safe
-RIOT_API_KEY=https://developer.riotgames.com/
+RIOT_API_KEY=https://developer.riotgames.com
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
 REDIS_PASSWORD=redis
 ADMIN_PASSWORD=creme
 ```

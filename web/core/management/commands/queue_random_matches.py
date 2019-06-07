@@ -1,7 +1,6 @@
 import datetime as dt
 import random
 
-from django import http
 from django.core.management import base
 from django.utils import timezone
 import django_rq
@@ -42,7 +41,7 @@ def queue_random_match(max_attempts=20):
                     try:
                         services.queue_match(participant['summonerName'], region, raise_if_exists=True)
                         return
-                    except http.Http404:
+                    except exceptions.HTTPError:
                         break
 
             except exceptions.MatchAlreadyInserted:

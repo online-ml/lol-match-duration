@@ -3,9 +3,6 @@ from .base import *
 
 DEBUG = True
 
-SECRET_KEY = os.environ['SECRET_KEY']
-ADMIN_PASSWORD = os.environ['ADMIN_PASSWORD']
-
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
