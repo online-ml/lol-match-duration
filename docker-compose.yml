@@ -50,10 +50,11 @@ services:
       && python manage.py add_regions
       && python manage.py add_models
       && python manage.py add_admins
+      && python manage.py collectstatic --noinput
       && python manage.py queue_random_matches
       && /usr/local/bin/gunicorn lolmd.wsgi:application -w 2 -b :8000"
     volumes:
-      - web-static:/usr/src/app/static
+      - /static:/static
     ports:
       - "8000"
     depends_on:
@@ -66,7 +67,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - web-static:/www/static
+      - /static:/static
     links:
       - web:web
 
