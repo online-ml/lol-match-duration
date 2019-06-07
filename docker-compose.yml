@@ -50,6 +50,8 @@ services:
       && python manage.py add_regions
       && python manage.py add_models
       && python manage.py add_admins
+      && python manage.py prune_matches
+      && python manage.py flush_redis
       && python manage.py collectstatic --noinput
       && python manage.py queue_random_matches
       && /usr/local/bin/gunicorn lolmd.wsgi:application -w 2 -b :8000"

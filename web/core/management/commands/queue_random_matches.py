@@ -27,25 +27,26 @@ def queue_random_match(max_attempts=20):
 
         for match in matches:
 
-            try:
+            # Try to process the match once per user, because sometimes fetching a particular
+            # user bugs out
+            for participant in match['participants']:
 
-                # Try to process the match once per user, because sometimes fetching a particular
-                # user bugs out
-                for participant in match['participants']:
+                # Stop when too many attempts have been made
+                n_attempts += 1
+                if n_attempts > max_attempts:
+                    return
 
-                    # Stop when too many attempts have been made
-                    n_attempts += 1
-                    if n_attempts > max_attempts:
-                        return
-
-                    try:
-                        services.queue_match(participant['summonerName'], region, raise_if_exists=True)
-                        return
-                    except exceptions.HTTPError:
+                try:
+                    _, already_exists = services.queue_match(
+                        summoner_name=participant['summonerName'],
+                        region=region,
+                        raise_if_exists=True
+                    )
+                    if already_exists:
                         break
-
-            except exceptions.MatchAlreadyInserted:
-                continue
+                    return
+                except exceptions.HTTPError:
+                    break
 
 
 class Command(base.BaseCommand):

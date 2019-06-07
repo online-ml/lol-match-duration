@@ -40,9 +40,7 @@ def queue_match(summoner_name, region, raise_if_exists=False):
     # Check if the match has already been inserted
     try:
         match = models.Match.objects.get(api_id=match_info['gameId'], region=region)
-        if raise_if_exists:
-            raise exceptions.MatchAlreadyInserted
-        return match.id
+        return match.id, True
     except exceptions.ObjectDoesNotExist:
         pass
 
@@ -104,18 +102,18 @@ def queue_match(summoner_name, region, raise_if_exists=False):
         scheduled_time=match.started_at + dt.timedelta(minutes=15),
         interval=60,
         func=try_to_end_match,
-        kwargs={'match_id': match.id},
+        kwargs={'id': match.id},
         repeat=None  # None means forever
     )
     match.rq_job_id = job.get_id()
     match.save()
 
-    return match.id
+    return match.id, False
 
 
-def try_to_end_match(match_id):
+def try_to_end_match(id):
 
-    match = models.Match.objects.get(id=match_id)
+    match = models.Match.objects.get(id=id)
     region = match.region
 
     # Fetch the match information
@@ -132,7 +130,6 @@ def try_to_end_match(match_id):
         return
 
     # Set the match's end time
-    match = shortcuts.get_object_or_404(models.Match, id=match_id, region=region)
     match.duration = int(duration)
 
     # Set the winning team ID

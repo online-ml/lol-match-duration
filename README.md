@@ -68,3 +68,25 @@ POSTGRES_PASSWORD=postgres
 REDIS_PASSWORD=redis
 ADMIN_PASSWORD=creme
 ```
+
+Run the following command to create a DigitalOcean droplet named `prod`. Replace the variables as you wish (for example `$DIGITALOCEAN_SIZE` could be `s-1vcpu-1gb` and region could be `nyc3`). Run `docker-machine -h` for more details.
+
+```sh
+>>> docker-machine create --driver digitalocean
+                          --digitalocean-access-token $DIGITALOCEAN_ACCESS_TOKEN
+                          --digitalocean-size $DIGITALOCEAN_SIZE
+                          --digitalocean-region $DIGITALOCEAN_REGION
+                          prod
+```
+
+You can now run `docker-machine ls` to see the instance you just created. Next run the following commands to deploy the app.
+
+```sh
+>>> eval "$(docker-machine env prod)"
+>>> docker-compose build
+>>> docker-compose up -d
+```
+
+Finally run `docker-machine ip prod` to get the IP address of the production instance. If you want to check out the logs run `docker-compose logs`.
+
+For more information about deploying a Django app with Docker check out [this](https://realpython.com/django-development-with-docker-compose-and-machine/) down to earth post.

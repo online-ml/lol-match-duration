@@ -19,7 +19,7 @@ def index(request):
         if form.is_valid():
 
             try:
-                match_id = services.queue_match(
+                match_id, _ = services.queue_match(
                     summoner_name=form.cleaned_data['summoner_name'],
                     region=form.cleaned_data['region']
                 )

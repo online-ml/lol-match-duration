@@ -100,8 +100,8 @@ class Command(base.BaseCommand):
         for name, pipeline in MODELS.items():
 
             if models.CremeModel.objects.filter(name=name).exists():
-                print(f'{name} has already been added')
+                print(f'\t{name} has already been added')
                 continue
 
             models.CremeModel(name=name, pipeline=pipeline).save()
-            print(f'Added {name}')
+            print(f'\tAdded {name}')
