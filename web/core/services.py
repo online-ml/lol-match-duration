@@ -2,7 +2,6 @@ import datetime as dt
 import logging
 import pytz
 
-from django import shortcuts
 from django.conf import settings
 import django_rq
 

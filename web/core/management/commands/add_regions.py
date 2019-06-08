@@ -32,4 +32,8 @@ class Command(base.BaseCommand):
         ]
 
         for region in regions:
+            if models.Region.objects.filter(short_name=region.short_name).exists():
+                print(f'\t{region.short_name} has already been added')
+                continue
             models.Region(**region._asdict()).save()
+            print(f'\tAdded {region.short_name}')

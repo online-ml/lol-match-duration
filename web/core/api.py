@@ -1,7 +1,6 @@
 import random
 from urllib.parse import urljoin
 
-from django import http
 from django.conf import settings
 import requests
 
