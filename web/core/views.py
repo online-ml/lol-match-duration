@@ -1,4 +1,5 @@
 import datetime as dt
+import re
 
 from django import shortcuts
 from django.db.models import Avg, IntegerField, F, Func, ExpressionWrapper
@@ -24,7 +25,8 @@ def index(request):
                     region=form.cleaned_data['region']
                 )
             except Exception as exc:
-                messages.error(request, f'{exc.__class__.__name__}: {exc}')
+                exc_str = re.sub(r'api_key=.+&', '', str(exc))
+                messages.error(request, f'{exc.__class__.__name__}: {exc_str}')
                 return shortcuts.redirect('index')
 
             return shortcuts.redirect('match', match_id=match_id)

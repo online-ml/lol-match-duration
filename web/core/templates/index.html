@@ -221,10 +221,6 @@ var buttons = document.querySelectorAll('button[data-target]');
     var pageloader = document.getElementById(e.currentTarget.dataset.target);
     if (pageloader) {
       pageloader.classList.toggle('is-active');
-      var pageloaderTimeout = setTimeout( function() {
-        pageloader.classList.toggle('is-active');
-        clearTimeout(pageloaderTimeout);
-      }, 3000 );
     }
   });
 });
