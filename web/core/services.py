@@ -3,6 +3,7 @@ import logging
 import pytz
 
 from django.conf import settings
+from django.utils import timezone
 import django_rq
 
 from . import exceptions
@@ -86,9 +87,10 @@ def queue_match(summoner_name, region, raise_if_exists=False):
         if not ok:
             logger.warning('Optimistic logging failed when predicting')
 
-    # Clamp the prediction we know the min/max time of a match
+    # Clamp the prediction because we know the min/max time of a match
     min_duration = dt.timedelta(minutes=10 if match.mode == 'ARAM' else 15).seconds
     max_duration = dt.timedelta(hours=3).seconds
+
     predicted_duration = min(max(duration, min_duration), max_duration)
 
     # Save the model to get an ID that we can give to RQ
