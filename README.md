@@ -31,7 +31,14 @@ Create an `.env` file with the following structure:
 RIOT_API_KEY=https://developer.riotgames.com/
 ```
 
-You first have to build the stack.
+Next, create a local machine named `dev` and connect to it.
+
+```sh
+>>> docker-machine create dev
+>>> eval "$(docker-machine env dev)"
+```
+
+Now you can build the stack.
 
 ```sh
 docker-compose build
@@ -87,6 +94,6 @@ You can now run `docker-machine ls` to see the instance you just created. Next r
 >>> docker-compose up -d
 ```
 
-Finally run `docker-machine ip prod` to get the IP address of the production instance. If you want to check out the logs run `docker-compose logs`.
+Finally run `docker-machine ip prod` to get the IP address of the production instance. If you want to check out the logs run `docker-compose logs --tail=1000`.
 
 For more information about deploying a Django app with Docker check out [this](https://realpython.com/django-development-with-docker-compose-and-machine/) down to earth post.

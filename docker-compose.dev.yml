@@ -23,22 +23,28 @@ services:
     environment:
       - POSTGRES_HOST=postgres
       - POSTGRES_DB=lolmd
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - PGDATA=/var/lib/postgresql/data/
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
     ports:
       - "5432:5432"
 
   redis:
-    image: bitnami/redis:4.0.11
+    image: redis:5.0.5
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis}
+    volumes:
+      - redisdata:/data
     ports:
       - "6379:6379"
+    command: >
+      --requirepass $REDIS_PASSWORD
 
   web:
     restart: always
-    build: .
+    build: ./web/
     environment: *web-variables
     command: >
       bash -c "python manage.py makemigrations core
@@ -48,12 +54,16 @@ services:
       && python manage.py add_regions
       && python manage.py add_models
       && python manage.py add_admins
+      && python manage.py prune_matches
+      && python manage.py flush_redis
+      && python manage.py collectstatic --noinput
       && python manage.py queue_random_matches
-      && python manage.py runserver 0.0.0.0:8000"
+      && /usr/local/bin/gunicorn lolmd.wsgi:application -w 2 -b :8000"
     volumes:
+      - /static:/static
       - .:/code
     ports:
-      - "8000:8000"
+      - "8000"
     depends_on:
       - postgres
       - redis
@@ -64,27 +74,23 @@ services:
     ports:
       - "80:80"
     volumes:
-      - web-static:/www/static
+      - /static:/static
     links:
       - web:web
 
   rqworker:
     restart: always
-    build: ./
+    build: ./web/
     environment: *web-variables
     command: bash wait-for-it.sh web:8000 -t 0 -- python manage.py rqworker default
-    volumes:
-      - .:/code
     depends_on:
       - web
 
   rqscheduler:
     restart: always
-    build: ./
+    build: ./web/
     environment: *web-variables
     command: bash wait-for-it.sh web:8000 -t 0 -- python manage.py rqscheduler --interval 60
-    volumes:
-      - .:/code
     depends_on:
       - web
 
@@ -102,3 +108,8 @@ services:
       - PORT=8082
     depends_on:
       - redis
+
+volumes:
+  web-static:
+  postgres_data:
+  redisdata:

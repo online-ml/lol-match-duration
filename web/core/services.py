@@ -3,7 +3,6 @@ import logging
 import pytz
 
 from django.conf import settings
-from django.utils import timezone
 import django_rq
 
 from . import exceptions
@@ -121,6 +120,7 @@ def try_to_end_match(id):
     try:
         match_info = api.fetch_match(match_api_id=match.api_id, region=region)
     except exceptions.HTTPError:
+        logger.error('HTTP error', exc_info=True)
         return
 
     # Get the duration in seconds
@@ -128,6 +128,7 @@ def try_to_end_match(id):
 
     # Can't do anything if the game hasn't ended yet
     if duration is None:
+        logger.info(f'Match {match.id} has not finished')
         return
 
     # Set the match's end time

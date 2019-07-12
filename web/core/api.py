@@ -76,5 +76,5 @@ def fetch_total_champion_mastery(summoner_id, region):
 
 def fetch_summoner_ranking(summoner_id, region):
     """Fetch ranking information using a summoner ID."""
-    path = f'/lol/league/v4/positions/by-summoner/{summoner_id}'
+    path = f'/lol/league/v4/entries/by-summoner/{summoner_id}'
     return get_from_api(path, region)

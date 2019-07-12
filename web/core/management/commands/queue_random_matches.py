@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 import random
 
 from django.core.management import base
@@ -9,6 +10,9 @@ from core import exceptions
 from core import models
 from core import api
 from core import services
+
+
+logger = logging.getLogger(__name__)
 
 
 def queue_random_match(max_attempts=20):
@@ -34,6 +38,7 @@ def queue_random_match(max_attempts=20):
                 # Stop when too many attempts have been made
                 n_attempts += 1
                 if n_attempts > max_attempts:
+                    logger.warning('Did not find any match to queue')
                     return
 
                 try:
@@ -46,7 +51,10 @@ def queue_random_match(max_attempts=20):
                         break
                     return
                 except exceptions.HTTPError:
+                    logger.error('HTTP error', exc_info=True)
                     break
+
+    logger.warning('Did not find any match to queue')
 
 
 class Command(base.BaseCommand):

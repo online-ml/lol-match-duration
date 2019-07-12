@@ -1,7 +1,7 @@
 version: '3.4'
 
 x-web-variables: &web-variables
-  DJANGO_SETTINGS_MODULE: lolmd.settings.dev
+  DJANGO_SETTINGS_MODULE: lolmd.settings.prod
   SECRET_KEY: ${SECRET_KEY}
   RIOT_API_KEY: ${RIOT_API_KEY}
   POSTGRES_HOST: postgres
@@ -32,13 +32,15 @@ services:
       - "5432:5432"
 
   redis:
-    image: bitnami/redis:4.0.11
+    image: redis:5.0.5
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis}
     volumes:
       - redisdata:/data
     ports:
       - "6379:6379"
+    command: >
+      --requirepass $REDIS_PASSWORD
 
   web:
     restart: always
